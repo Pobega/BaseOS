@@ -190,7 +190,7 @@ fi
 # radio off), keep it off for a stock-length interval, and load again. Remember
 # that on /data so later boots hold the first load instead of failing first.
 # Units whose first attempt works, the common case, are unaffected.
-if [ -f /lib/modules/8821cs.ko ]; then
+if [ "${BASEOS_PLATFORM:-h700}" != a133p ]; then
 	(
 		# Stock loads the Bluetooth wake-handshake driver during early boot
 		# (/etc/modules); its probe drives BT_WAKE (PG17) high. Keep that state,
@@ -268,8 +268,12 @@ else
 		|| /bin/tr -d - < /proc/sys/kernel/random/uuid > /run/machine-id
 	/bin/cp /run/machine-id /data/machine-id 2>/dev/null
 fi
-/bin/mkdir -p /run/dbus /var/lib/dbus
+/bin/mkdir -p /run/dbus /var/lib/dbus /data/wifi /run/wifi-sockets
 /bin/ln -sf /run/machine-id /var/lib/dbus/machine-id
+/bin/ln -sfn /run/wifi-sockets /data/wifi/sockets
+if [ "${BASEOS_PLATFORM:-}" = a133p ] && [ -x /usr/sbin/baseos-usb-wifi ]; then
+	/usr/sbin/baseos-usb-wifi </dev/null >/dev/null 2>&1 &
+fi
 
 # First boot on a fresh flash: grow this card's data partition to fill the
 # whole card (leaving it empty for the user to add a frontend). No-op once the

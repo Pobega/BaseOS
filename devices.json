@@ -144,7 +144,7 @@
       "bootlogo_width": 640,
       "bootlogo_height": 480,
       "panel_rotation_ccw": 0,
-      "wifi": false,
+      "wifi": true,
       "bluetooth": false
     }
   ]

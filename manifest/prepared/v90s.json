@@ -10,12 +10,12 @@
   },
   "capabilities": {
     "bluetooth": false,
-    "wifi": false
+    "wifi": true
   },
   "harvest": {
     "optional_omissions": [],
-    "sha256": "9abd2074b7cb9bc709c8ec3d40cbdffe4a48db58338a556f1d24c8be223a55cc",
-    "size": 60293120
+    "sha256": "33791fd1ef89636bd4b0d5cbc436fc40e7d5bbc0ec0f4a4675e14eefb8e6778d",
+    "size": 131952640
   },
   "layout": {
     "backup_gpt_present": true,

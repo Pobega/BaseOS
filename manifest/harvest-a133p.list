@@ -83,6 +83,30 @@
 /usr/sbin/ldconfig
 /usr/bin/evtest
 
+## WiFi
+/usr/sbin/wpa_supplicant
+/usr/sbin/wpa_cli
+/usr/sbin/iw
+/usr/sbin/usb_modeswitch
+/etc/usb_modeswitch.conf
+/usr/lib/libnl-3.so.200
+/usr/lib/libnl-genl-3.so.200
+/usr/lib/libnl-route-3.so.200
+/usr/lib/libreadline.so.8
+/usr/lib/libncursesw.so.6
+/usr/lib/libtinfo.so.6
+/usr/lib/libusb-1.0.so.0
+/usr/lib/firmware/rtlwifi
+/usr/lib/firmware/rtw88
+/usr/lib/firmware/mediatek
+/usr/lib/modules/4.9.191/modules.dep
+/usr/lib/modules/4.9.191/modules.alias
+/usr/lib/modules/4.9.191/extra/8192eu.ko
+/usr/lib/modules/4.9.191/extra/8723bu.ko
+/usr/lib/modules/4.9.191/extra/8812au.ko
+/usr/lib/modules/4.9.191/extra/8821cu.ko
+/usr/lib/modules/4.9.191/extra/88x2bu.ko
+
 ## kernel modules
 /usr/lib/modules/4.9.191/pvrsrvkm.ko
 /usr/lib/modules/4.9.191/dc_sunxi.ko

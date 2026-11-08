@@ -1,0 +1,71 @@
+#!/bin/sh
+# Detect and initialize external USB Wi-Fi dongles on A133P (V90S).
+# Handles Realtek virtual CD-ROM mode-switching (0bda:1a2b), loads the matching
+# kernel module from /lib/modules/4.9.191, and brings up wlan0.
+set -u
+
+mkdir -p /data/wifi /run/wifi-sockets 2>/dev/null || true
+[ "$(readlink /data/wifi/sockets 2>/dev/null)" = "/run/wifi-sockets" ] \
+	|| ln -sfn /run/wifi-sockets /data/wifi/sockets 2>/dev/null || true
+
+has_usb_id() {
+	target_vid="$1"
+	target_pid="$2"
+	for dev_dir in /sys/bus/usb/devices/*; do
+		[ -r "$dev_dir/idVendor" ] && [ -r "$dev_dir/idProduct" ] || continue
+		read -r vid < "$dev_dir/idVendor" 2>/dev/null || continue
+		read -r pid < "$dev_dir/idProduct" 2>/dev/null || continue
+		if [ "$vid" = "$target_vid" ] && [ "$pid" = "$target_pid" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+has_external_usb_device() {
+	for dev_dir in /sys/bus/usb/devices/[0-9]*-[0-9]*; do
+		[ -r "$dev_dir/idVendor" ] && return 0
+	done
+	return 1
+}
+
+# Realtek RTL8821CU / RTL8811CU dongles enumerate initially as a virtual CD-ROM
+# (0bda:1a2b) until usb_modeswitch flips them into Wi-Fi mode.
+if has_usb_id "0bda" "1a2b" && [ -x /usr/sbin/usb_modeswitch ]; then
+	/usr/sbin/usb_modeswitch -K -v 0bda -p 1a2b >/dev/null 2>&1 || true
+	wait_n=0
+	while has_usb_id "0bda" "1a2b" && [ "$wait_n" -lt 15 ]; do
+		sleep 0.2 2>/dev/null || sleep 1
+		wait_n=$((wait_n + 1))
+	done
+	sleep 0.5 2>/dev/null || sleep 1
+fi
+
+if [ ! -d /sys/class/net/wlan0 ] && has_external_usb_device; then
+	for mod_file in /sys/bus/usb/devices/[0-9]*-[0-9]*/modalias; do
+		[ -r "$mod_file" ] || continue
+		read -r mod_alias < "$mod_file" 2>/dev/null || continue
+		/sbin/modprobe -q "$mod_alias" 2>/dev/null || true
+	done
+fi
+
+if [ ! -d /sys/class/net/wlan0 ] && has_external_usb_device; then
+	for ko in /lib/modules/4.9.191/extra/*.ko; do
+		[ -f "$ko" ] || continue
+		/sbin/insmod "$ko" 2>/dev/null || true
+		wait_n=0
+		while [ ! -d /sys/class/net/wlan0 ] && [ "$wait_n" -lt 6 ]; do
+			sleep 0.1 2>/dev/null || sleep 1
+			wait_n=$((wait_n + 1))
+		done
+		[ -d /sys/class/net/wlan0 ] && break
+	done
+fi
+
+if [ -d /sys/class/net/wlan0 ]; then
+	rfkill unblock wifi 2>/dev/null || true
+	ip link set wlan0 up 2>/dev/null || true
+	exit 0
+fi
+
+exit 0
