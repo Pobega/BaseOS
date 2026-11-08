@@ -293,10 +293,10 @@ docker run --rm --platform "$BASEOS_DOCKER_PLATFORM_AARCH64" \
     [ -f "$R/usr/lib/arm-linux-gnueabihf/libc.so.6" ] \
       || { echo "FATAL: ARMHF libc missing for rtk_hciattach"; exit 1; }
   fi
-  find "$R/usr/bin" "$R/usr/sbin" "$R/usr/libexec" -type f | while read -r f; do
+  find "$R/usr/bin" "$R/usr/sbin" "$R/usr/libexec" "$R/usr/lib" -maxdepth 1 -type f | while read -r f; do
     head -c4 "$f" | grep -q "^.ELF" || continue
     case "$f" in
-      */busybox|*/dropbearmulti|*/curl|*/fbsplash|*/gptgrow|*/gptslot|*/ldconfig|*/ldconfig.real|*/rtk_hciattach|*/sftp-server|*/adbd|*/axp-off|*/charger-wait|*/avahi-daemon|*/boot-clock|*/native-health|*/baseos-regs|*/e2fsck) continue ;;
+      */busybox|*/dropbearmulti|*/curl|*/fbsplash|*/gptgrow|*/gptslot|*/ldconfig|*/ldconfig.real|*/rtk_hciattach|*/sftp-server|*/adbd|*/axp-off|*/charger-wait|*/avahi-daemon|*/boot-clock|*/native-health|*/baseos-regs|*/e2fsck|*/ld-linux-*.so*|*/libc.so.6) continue ;;
     esac
     if ! chroot "$R" /lib/ld-linux-aarch64.so.1 --list \
         "${f#"$R"}" 2>/dev/null | grep -q "=>"; then

@@ -53,8 +53,12 @@
 /usr/lib/libSDL2_image-2.0.so.0
 /usr/lib/libSDL2_mixer-2.0.so.0
 /usr/lib/libfreetype.so.6
+/usr/lib/libharfbuzz.so.0
 /usr/lib/libpng16.so.16
 /usr/lib/libudev.so.1
+/usr/lib/libdbus-1.so.3
+/usr/lib/libsqlite3.so.0
+/usr/lib/libpcre2-8.so.0
 /usr/lib/libblkid.so.1
 /usr/lib/libmount.so.1
 /usr/lib/libuuid.so.1

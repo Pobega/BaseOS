@@ -696,5 +696,45 @@ for frontend in slot nextui spruce generic-binary generic-script; do
 		/tmp/frontend-env.log
 	echo "ok: $frontend inherits all release metadata without session-local variables"
 done
+
+# v90s (a133p) built-in MinUI.zip + pakz extraction and SDL_JOYSTICK_DISABLE_UDEV=1
+cat > /etc/baseos-release <<'EOF'
+BASEOS=1
+BASEOS_PLATFORM=a133p
+BASEOS_VERSION=1.5.3
+BASEOS_BUILD=test-build
+BASEOS_TARGET=v90s
+BASEOS_DEVICE=v90s
+BASEOS_MODEL="Powkiddy V90S"
+BASEOS_MODEL_STRING=V90S
+BASEOS_PANEL_ROTATION_CCW=0
+BASEOS_WIFI=0
+BASEOS_BLUETOOTH=0
+EOF
+cat > /usr/local/bin/unzip <<'EOF'
+#!/bin/sh
+echo "unzip $*" >> /tmp/unzip.log
+if [ "$1" = -o ] && [ "$2" = /mnt/sdcard/MinUI.zip ] && [ "$3" = -d ] && [ "$4" = /mnt/sdcard ]; then
+	mkdir -p /mnt/sdcard/.system/v90s/paks/MinUI.pak
+	cp /tmp/nextui-launch /mnt/sdcard/.system/v90s/paks/MinUI.pak/launch.sh
+	exit 0
+fi
+if [ "$1" = -o ] && [ "$3" = -d ] && [ "$4" = /mnt/sdcard ]; then
+	exit 0
+fi
+exit 94
+EOF
+chmod 755 /usr/local/bin/unzip
+reset
+rm -f /dev/mali0
+: > /dev/pvrsrvkm
+echo zip > /mnt/sdcard/MinUI.zip
+echo pakz > /mnt/sdcard/extra.pakz
+run_session
+[ "$status" -eq 0 ]
+[ ! -e /mnt/sdcard/MinUI.zip ] && [ ! -e /mnt/sdcard/extra.pakz ]
+grep -qx 'SDL_JOYSTICK_DISABLE_UDEV=1' /tmp/frontend-env.log
+echo 'ok: v90s built-in installer extracts MinUI.zip/pakz and exports SDL_JOYSTICK_DISABLE_UDEV=1'
+
 echo 'frontend session tests passed'
 TEST

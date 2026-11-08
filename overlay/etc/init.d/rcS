@@ -284,8 +284,10 @@ fi
 # identified, so follow its verdict rather than a card-detect level whose
 # polarity is board-specific. An empty slot costs one read; the wait ends at
 # the handoff budget whatever happens.
+tf2_sdc=sdc2
+[ "${BASEOS_PLATFORM:-}" = a133p ] && tf2_sdc=sdc1
 tf2_ios=
-for tf2_host in /sys/devices/platform/soc/sdc2/mmc_host/mmc*; do
+for tf2_host in "/sys/devices/platform/soc/$tf2_sdc"/mmc_host/mmc*; do
 	[ -d "$tf2_host" ] && tf2_ios="/sys/kernel/debug/${tf2_host##*/}/ios"
 done
 tf2_powered() {

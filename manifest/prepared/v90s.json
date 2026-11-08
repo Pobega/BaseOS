@@ -14,8 +14,8 @@
   },
   "harvest": {
     "optional_omissions": [],
-    "sha256": "50deb2b2312a3534577ef12fe177f061a86c417f9c041e475f074f2abc8088c1",
-    "size": 56596480
+    "sha256": "9abd2074b7cb9bc709c8ec3d40cbdffe4a48db58338a556f1d24c8be223a55cc",
+    "size": 60293120
   },
   "layout": {
     "backup_gpt_present": true,
