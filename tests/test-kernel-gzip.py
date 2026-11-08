@@ -83,7 +83,32 @@ def get(path, offset, size):
         return f.read(size)
 
 
+def check_v90s(target):
+    prefix = ROOT / "work" / target / "boot-prefix.img"
+    d = k.derive(target, prefix)
+    p, boot, image, partition = d["profile"], d["boot"], d["original_image"], d["original_boot"]
+    packed = boot[2048:2048 + word(boot, 8)]
+    assert packed == d["kernel"] == image[2048:2048 + word(image, 8)]
+    at = 2048 + k.align(len(packed))
+    assert word(boot, 16) == 512 and boot[at:at + 2048] == EMPTY + bytes(1536)
+    assert d["ramdisk"] == k.EMPTY_CPIO == EMPTY
+    assert boot[0x40:0x240] == k.CMDLINE.ljust(512, b"\0")
+    assert d["package"] == d["original_package"]
+    assert d["boot0"] == d["original_boot0"]
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "out"
+        manifest = k.prepare(target, prefix, out)
+        assert manifest == json.loads((out / "manifest.json").read_text())
+        copy = Path(tmp) / "prefix.img"
+        copy.write_bytes(prefix.read_bytes())
+        k.apply(target, prefix, copy)
+        k.verify(target, prefix, copy)
+    print(f"{target}: {len(image)} -> {len(boot)} bytes (Android v0 empty ramdisk, untouched boot0/TOC1) PASS")
+
+
 def check(target):
+    if target == "v90s":
+        return check_v90s(target)
     prefix = ROOT / "work" / target / "boot-prefix.img"
     d = k.derive(target, prefix)
     p, boot, image, partition = d["profile"], d["boot"], d["original_image"], d["original_boot"]
@@ -254,6 +279,6 @@ def check(target):
 
 
 catalog = json.loads(k.CATALOG.read_text())
-assert set(catalog["profiles"]) == set(GZIP_V1) == {p["id"] for p in load_profiles()}
+assert set(catalog["profiles"]) == set(GZIP_V1) == {p["id"] for p in load_profiles() if p.get("platform", "h700") == "h700"}
 for target in sys.argv[1:] or catalog["profiles"]:
     check(target)

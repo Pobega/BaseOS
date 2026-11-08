@@ -9,7 +9,15 @@ import shlex
 import struct
 from pathlib import Path
 
-from prepare_stock import BASEOS_NAMES, EXPECTED_NAMES, parse_gpt, sha256_file, sha256_range
+from prepare_stock import (
+    BASEOS_NAMES,
+    EXPECTED_NAMES,
+    V90S_BASEOS_NAMES,
+    V90S_EXPECTED_NAMES,
+    parse_gpt,
+    sha256_file,
+    sha256_range,
+)
 from kernel_gzip import BOOT0_OFFSET, derive as derive_gzip, sha as blob_sha
 
 
@@ -37,7 +45,7 @@ def verify_prepared(data: dict, directory: Path) -> None:
     # it records. prepare-stock.sh enforced this against the real GPT; checking
     # it again here catches a manifest that has since been edited or corrupted.
     names = [item["name"] for item in data["layout"]["partitions"]]
-    if names != EXPECTED_NAMES[: len(names)]:
+    if names != EXPECTED_NAMES[: len(names)] and names != V90S_EXPECTED_NAMES[: len(names)]:
         raise ValueError(f"manifest records an unexpected partition order: {names}")
 
     checks = (
@@ -88,19 +96,24 @@ def write_native(data: dict, prefix: Path, image: Path, directory: Path) -> None
 def verify_composed(data: dict, prefix: Path, image: Path, logo: Path, native_dir: Path | None = None) -> None:
     verify_prepared(data, prefix.parent)
     source_layout = data["layout"]
-    output_layout = parse_gpt(image, BASEOS_NAMES)
+    first_p_name = source_layout["partitions"][0]["name"]
+    is_v90s = first_p_name == "boot-resource"
+    expected_gpt_names = V90S_BASEOS_NAMES if is_v90s else BASEOS_NAMES
+    output_layout = parse_gpt(image, expected_gpt_names)
     gzip_boot = derive_gzip(data["target"], prefix)
     native = native_files(native_dir, gzip_boot["profile"]["package_offset"]) if native_dir else None
 
-    # All four boot partitions retain their GPT identity and geometry. p2 has
-    # the replacement bootlogo; p4 must match the exact gzip derivation.
+    # All four boot partitions retain their GPT identity and geometry.
+    # The replacement bootlogo sits in p1 on V90S (boot-resource) and p2 on H700;
+    # p4 must match the exact gzip derivation.
+    bootlogo_partition = 1 if is_v90s else 2
     for number in range(1, 5):
         source = partition(source_layout, number)
         output = partition(output_layout, number)
         for key in ("name", "type_guid", "unique_guid", "start_sector", "end_sector"):
             if source[key] != output[key]:
                 raise ValueError(f"partition {number} changed {key}")
-        if number == 2:
+        if number == bootlogo_partition:
             continue
         offset = source["start_sector"] * 512
         size = source["sector_count"] * 512
@@ -119,7 +132,8 @@ def verify_composed(data: dict, prefix: Path, image: Path, logo: Path, native_di
 
     first_partition = partition(source_layout, 1)
     raw_offset = 4 * 512
-    raw_size = (first_partition["start_sector"] - 4) * 512
+    raw_end_sector = 40960 if is_v90s else first_partition["start_sector"]
+    raw_size = (raw_end_sector - 4) * 512
     with prefix.open("rb") as handle:
         handle.seek(raw_offset)
         expected_raw = bytearray(handle.read(raw_size))
@@ -131,6 +145,11 @@ def verify_composed(data: dict, prefix: Path, image: Path, logo: Path, native_di
     if sha256_range(image, raw_offset, raw_size) != blob_sha(expected_raw):
         raise ValueError("raw boot region differs from the exact gzip bootloader derivation"
                          + (" with the native boot files" if native else ""))
+    if is_v90s:
+        primary_table_sha = sha256_range(image, 2 * 512, 2 * 512)
+        for mirror_lba in (40962, 41982):
+            if sha256_range(image, mirror_lba * 512, 2 * 512) != primary_table_sha:
+                raise ValueError(f"V90S logical GPT table at LBA {mirror_lba} differs from LBA 2")
 
     source_root = partition(source_layout, 5)
     output_root = partition(output_layout, 5)

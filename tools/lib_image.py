@@ -31,9 +31,25 @@ def kernel_config(kernel: bytes) -> set[str]:
     return set(gzip.decompress(kernel[start + 8:end]).decode().splitlines())
 
 
+def comp(kernel: bytes) -> str:
+    config = kernel_config(kernel)
+    if "CONFIG_SQUASHFS_ZSTD=y" in config:
+        return "zstd"
+    if "CONFIG_SQUASHFS_LZ4=y" in config:
+        return "lz4"
+    raise ValueError("kernel lacks both LZ4 and ZSTD squashfs compression")
+
+
 def missing(kernel: bytes) -> list[str]:
     config = kernel_config(kernel)
-    return [option for option in REQUIRED if option not in config]
+    absent = []
+    if "CONFIG_BLK_DEV_LOOP=y" not in config:
+        absent.append("CONFIG_BLK_DEV_LOOP=y")
+    if "CONFIG_SQUASHFS=y" not in config:
+        absent.append("CONFIG_SQUASHFS=y")
+    if "CONFIG_SQUASHFS_LZ4=y" not in config and "CONFIG_SQUASHFS_ZSTD=y" not in config:
+        absent.append("CONFIG_SQUASHFS_LZ4=y")
+    return absent
 
 
 def target_kernel(target: str) -> bytes:
@@ -44,13 +60,18 @@ def target_kernel(target: str) -> bytes:
 
 
 def main() -> None:
-    if len(sys.argv) != 3 or sys.argv[1] != "check":
-        raise SystemExit(__doc__.strip().splitlines()[-1])
-    target = sys.argv[2]
-    absent = missing(target_kernel(target))
+    if len(sys.argv) != 3 or sys.argv[1] not in ("check", "comp"):
+        raise SystemExit("Usage: lib_image.py check|comp TARGET")
+    command, target = sys.argv[1], sys.argv[2]
+    kernel = target_kernel(target)
+    if command == "comp":
+        print(comp(kernel))
+        return
+    absent = missing(kernel)
     if absent:
         raise SystemExit(f"{target}: the kernel cannot mount the /usr/lib image, it lacks {' '.join(absent)}")
-    print(f"{target}: kernel mounts LZ4 squashfs through a loop device")
+    compressor = comp(kernel)
+    print(f"{target}: kernel mounts {compressor.upper()} squashfs through a loop device")
 
 
 if __name__ == "__main__":

@@ -53,6 +53,36 @@ STOCK_NAMES = [
     "UDISK",
     None,
 ]
+V90S_STOCK_NAMES = [
+    "boot-resource",
+    "env",
+    "env-redund",
+    "boot",
+    "batocera",
+    "rootfs",
+    "rootfs_data",
+    "UDISK",
+]
+V90S_EXPECTED_NAMES = [
+    "boot-resource",
+    "env",
+    "env-redund",
+    "boot",
+    "rootfs",
+    "appfs",
+    "UDISK",
+    "primary",
+]
+V90S_BASEOS_NAMES = [
+    "boot-resource",
+    "env",
+    "env-redund",
+    "boot",
+    "rootfs",
+    "UDISK",
+    "primary",
+    None,
+]
 # `special` in the StockMod table, and what a stock image's `Roms` is rebuilt as.
 SPECIAL_SECTORS = 131072  # 64 MiB
 SECTOR_SIZE = 512
@@ -91,7 +121,20 @@ def parse_gpt(image: Path, expected_names: list | None = None) -> dict:
     """
     # Newer StockMod BASE images include a valid backup GPT but still omit p8.
     # Accept that exact table alongside the older full eight-partition layout.
-    accepted = [expected_names] if expected_names else [EXPECTED_NAMES, STOCKMOD_BASE_NAMES, STOCK_NAMES]
+    if expected_names:
+        accepted = (
+            expected_names
+            if (isinstance(expected_names, list) and expected_names and isinstance(expected_names[0], list))
+            else [expected_names]
+        )
+    else:
+        accepted = [
+            EXPECTED_NAMES,
+            STOCKMOD_BASE_NAMES,
+            STOCK_NAMES,
+            V90S_STOCK_NAMES,
+            V90S_EXPECTED_NAMES,
+        ]
     image_size = image.stat().st_size
     if image_size % SECTOR_SIZE:
         raise ValueError("disk image size is not a whole number of 512-byte sectors")
@@ -116,8 +159,10 @@ def parse_gpt(image: Path, expected_names: list | None = None) -> dict:
         entry_count, entry_size, entries_crc = struct.unpack_from("<III", sector, 80)
         if current_lba != 1:
             raise ValueError(f"unexpected primary GPT LBA: {current_lba}")
-        if entries_lba != 2 or first_usable != 4 or last_usable != backup_lba - 3:
-            raise ValueError("unexpected H700 GPT table or usable-LBA geometry")
+        is_v90s_stock_geom = (entries_lba == 41982 and first_usable == 41984)
+        if not is_v90s_stock_geom:
+            if entries_lba != 2 or first_usable != 4 or last_usable != backup_lba - 3:
+                raise ValueError("unexpected H700 GPT table or usable-LBA geometry")
         if entry_count != 8 or entry_size != 128:
             raise ValueError(f"expected GPT shape 8x128, found {entry_count}x{entry_size}")
 
@@ -125,7 +170,8 @@ def parse_gpt(image: Path, expected_names: list | None = None) -> dict:
         table = handle.read(entry_count * entry_size)
         if len(table) != entry_count * entry_size:
             raise ValueError("truncated primary GPT entry table")
-        if binascii.crc32(table) & 0xFFFFFFFF != entries_crc:
+        table_crc = binascii.crc32(table) & 0xFFFFFFFF
+        if table_crc != entries_crc and not is_v90s_stock_geom:
             raise ValueError("primary GPT entry-table CRC mismatch")
 
         partitions = []
@@ -157,11 +203,20 @@ def parse_gpt(image: Path, expected_names: list | None = None) -> dict:
                 }
             )
 
-        if backup_lba == image_sectors - 1:
+        if is_v90s_stock_geom and names == V90S_STOCK_NAMES:
+            if names not in accepted:
+                raise ValueError(f"unexpected partition names/order: {names}")
+            packaging = "v90s-stock"
+            source_layout = "v90s-stock"
+        elif backup_lba == image_sectors - 1:
             packaging = "full-disk"
             if names not in accepted:
                 raise ValueError(f"unexpected partition names/order: {names}")
-            source_layout = "stock" if names == STOCK_NAMES else "stockmod"
+            source_layout = (
+                "stock"
+                if names == STOCK_NAMES
+                else ("v90s-stock" if names == V90S_STOCK_NAMES else "stockmod")
+            )
             handle.seek(backup_lba * SECTOR_SIZE)
             backup_sector = handle.read(SECTOR_SIZE)
             if len(backup_sector) != SECTOR_SIZE or backup_sector[:8] != b"EFI PART":
@@ -227,7 +282,7 @@ def parse_gpt(image: Path, expected_names: list | None = None) -> dict:
     return {
         "packaging": packaging,
         "source_layout": source_layout,
-        "backup_gpt_present": packaging == "full-disk",
+        "backup_gpt_present": packaging in ("full-disk", "v90s-stock"),
         "sector_size": SECTOR_SIZE,
         "image_sectors": image_sectors,
         "declared_image_sectors": backup_lba + 1,
@@ -425,6 +480,142 @@ def build_normalised_prefix(
     write_normalised_gpt(image, output, normalised)
 
 
+def normalise_v90s_layout(layout: dict) -> dict:
+    renamed_names = ["rootfs", "appfs", "UDISK", "primary"]
+    rebased = []
+    for partition_entry in layout["partitions"]:
+        entry = dict(partition_entry)
+        if entry["number"] >= 5:
+            entry["name"] = renamed_names[entry["number"] - 5]
+        rebased.append(entry)
+
+    normalised = dict(layout)
+    normalised["partitions"] = rebased
+    normalised["normalised_from"] = "v90s-stock"
+    normalised["first_usable_lba"] = 4
+    normalised["entries_lba"] = 2
+    image_sectors = layout["image_sectors"]
+    normalised["backup_lba"] = image_sectors - 1
+    normalised["last_usable_lba"] = image_sectors - 4
+    return normalised
+
+
+def patch_uboot_env(env_bytes: bytes, flag: int, updates: dict[str, str]) -> bytes:
+    payload = env_bytes[5:]
+    double_nul = payload.find(b"\x00\x00")
+    if double_nul >= 0:
+        raw_items = payload[:double_nul].split(b"\x00")
+    else:
+        raw_items = [s for s in payload.split(b"\x00") if s]
+
+    env_dict: dict[str, str] = {}
+    for item in raw_items:
+        if not item:
+            continue
+        decoded = item.decode("latin1")
+        if "=" in decoded:
+            k, v = decoded.split("=", 1)
+            env_dict[k] = v
+
+    env_dict.update(updates)
+
+    serialized_parts = [f"{k}={v}".encode("latin1") for k, v in env_dict.items()]
+    serialized = b"\x00".join(serialized_parts) + b"\x00\x00"
+    if len(serialized) > len(payload):
+        raise ValueError("environment variables exceed partition size")
+
+    new_payload = bytearray(len(payload))
+    new_payload[: len(serialized)] = serialized
+    crc = binascii.crc32(new_payload) & 0xFFFFFFFF
+
+    result = bytearray(len(env_bytes))
+    struct.pack_into("<I", result, 0, crc)
+    result[4] = flag
+    result[5:] = new_payload
+    return bytes(result)
+
+
+def build_v90s_prefix(
+    image: Path, layout: dict, normalised: dict, output: Path
+) -> None:
+    prefix_sectors = normalised["partitions"][4]["start_sector"]
+    copy_range(image, output, 0, prefix_sectors * SECTOR_SIZE)
+
+    env_updates = {
+        "nand_root": "/dev/mmcblk0p5",
+        "mmc_root": "/dev/mmcblk0p5",
+        "init": "/init",
+        "loglevel": "1",
+    }
+    env_size = 131072
+    p2_offset = layout["partitions"][1]["start_sector"] * SECTOR_SIZE
+    p3_offset = layout["partitions"][2]["start_sector"] * SECTOR_SIZE
+
+    with output.open("r+b") as handle:
+        handle.seek(p2_offset)
+        p2_env = handle.read(env_size)
+        handle.seek(p2_offset)
+        handle.write(patch_uboot_env(p2_env, 0x01, env_updates))
+
+        handle.seek(p3_offset)
+        p3_env = handle.read(env_size)
+        handle.seek(p3_offset)
+        handle.write(patch_uboot_env(p3_env, 0x00, env_updates))
+
+    with image.open("rb") as handle:
+        handle.seek(SECTOR_SIZE)
+        primary_header = bytearray(handle.read(SECTOR_SIZE))
+        src_entries_lba = struct.unpack_from("<Q", primary_header, 72)[0]
+        entry_count, entry_size = struct.unpack_from("<II", primary_header, 80)
+        handle.seek(src_entries_lba * SECTOR_SIZE)
+        table = bytearray(handle.read(entry_count * entry_size))
+        handle.seek(40961 * SECTOR_SIZE)
+        secondary_header = bytearray(handle.read(SECTOR_SIZE))
+
+    by_number = {p["number"]: p for p in normalised["partitions"]}
+    for index in range(entry_count):
+        entry = memoryview(table)[index * entry_size : (index + 1) * entry_size]
+        partition_entry = by_number.get(index + 1)
+        if partition_entry is None:
+            continue
+        struct.pack_into(
+            "<QQ", entry, 32, partition_entry["start_sector"], partition_entry["end_sector"]
+        )
+        name = partition_entry["name"].encode("utf-16-le")
+        entry[56:128] = name.ljust(72, b"\0")
+
+    table_crc = binascii.crc32(bytes(table)) & 0xFFFFFFFF
+
+    struct.pack_into("<Q", primary_header, 72, 2)
+    struct.pack_into("<QQ", primary_header, 40, 4, normalised["last_usable_lba"])
+    struct.pack_into("<QQ", primary_header, 24, 1, normalised["backup_lba"])
+    struct.pack_into("<I", primary_header, 88, table_crc)
+    struct.pack_into("<I", primary_header, 16, 0)
+    primary_hdr_size = struct.unpack_from("<I", primary_header, 12)[0]
+    struct.pack_into(
+        "<I", primary_header, 16, binascii.crc32(bytes(primary_header[:primary_hdr_size])) & 0xFFFFFFFF
+    )
+
+    struct.pack_into("<I", secondary_header, 88, table_crc)
+    struct.pack_into("<I", secondary_header, 16, 0)
+    sec_hdr_size = struct.unpack_from("<I", secondary_header, 12)[0]
+    struct.pack_into(
+        "<I", secondary_header, 16, binascii.crc32(bytes(secondary_header[:sec_hdr_size])) & 0xFFFFFFFF
+    )
+
+    with output.open("r+b") as handle:
+        handle.seek(1 * SECTOR_SIZE)
+        handle.write(bytes(primary_header))
+        handle.seek(2 * SECTOR_SIZE)
+        handle.write(bytes(table))
+        handle.seek(40961 * SECTOR_SIZE)
+        handle.write(bytes(secondary_header))
+        handle.seek(40962 * SECTOR_SIZE)
+        handle.write(bytes(table))
+        handle.seek(41982 * SECTOR_SIZE)
+        handle.write(bytes(table))
+
+
 def image_matches_profile(filename: str, profile: dict) -> bool:
     """Is this firmware filename this target's?
 
@@ -499,6 +690,53 @@ def omission_allowed(path: str, category: str, profile: dict) -> bool:
     return False
 
 
+def merge_into(source: Path, target: Path) -> None:
+    target.mkdir(parents=True, exist_ok=True)
+    for item in list(source.iterdir()):
+        dest = target / item.name
+        if item.is_dir() and not item.is_symlink():
+            if dest.exists() and dest.is_dir() and not dest.is_symlink():
+                merge_into(item, dest)
+                item.rmdir()
+            else:
+                if dest.exists() or dest.is_symlink():
+                    if dest.is_dir() and not dest.is_symlink():
+                        shutil.rmtree(dest)
+                    else:
+                        dest.unlink()
+                shutil.move(str(item), str(dest))
+        else:
+            if dest.exists() or dest.is_symlink():
+                if dest.is_dir() and not dest.is_symlink():
+                    shutil.rmtree(dest)
+                else:
+                    dest.unlink()
+            shutil.move(str(item), str(dest))
+
+
+def normalize_merged_usr(root: Path) -> None:
+    lib64 = root / "lib64"
+    if lib64.is_symlink() or lib64.exists():
+        if lib64.is_dir() and not lib64.is_symlink():
+            shutil.rmtree(lib64)
+        else:
+            lib64.unlink()
+
+    for name in ("lib", "bin", "sbin"):
+        source = root / name
+        target = root / "usr" / name
+        if source.exists() and not source.is_symlink():
+            merge_into(source, target)
+            shutil.rmtree(source)
+            source.symlink_to(f"usr/{name}")
+
+    usr_lib = root / "usr" / "lib"
+    gles1 = usr_lib / "libGLESv1_CM.so.1"
+    gles_cm = usr_lib / "libGLES_CM.so.1"
+    if not gles1.exists() and gles_cm.exists():
+        gles1.symlink_to("libGLES_CM.so.1")
+
+
 def create_harvest(
     root_partition: Path,
     manifest: Path,
@@ -506,12 +744,26 @@ def create_harvest(
     temporary: Path,
     profile: dict,
 ) -> list[str]:
+    with root_partition.open("rb") as handle:
+        header_magic = handle.read(4)
+        handle.seek(1080)
+        ext_magic = handle.read(2)
+
     extracted = temporary / "stock-root"
     extracted.mkdir()
-    run(
-        ["debugfs", "-R", f"rdump / {extracted}", str(root_partition)],
-        stdout=subprocess.DEVNULL,
-    )
+    if header_magic == b"hsqs":
+        run(
+            ["unsquashfs", "-no-xattrs", "-f", "-d", str(extracted), str(root_partition)],
+            stdout=subprocess.DEVNULL,
+        )
+        normalize_merged_usr(extracted)
+    elif ext_magic == b"\x53\xef":
+        run(
+            ["debugfs", "-R", f"rdump / {extracted}", str(root_partition)],
+            stdout=subprocess.DEVNULL,
+        )
+    else:
+        raise ValueError("root partition is neither squashfs nor an ext filesystem")
 
     entries = load_harvest_entries(manifest)
     busybox = Path("/bin/busybox.static")
@@ -622,7 +874,13 @@ def main() -> int:
     # speaks the StockMod table and is left untouched by stock support.
     source = parse_gpt(image)
     from_stock = source["source_layout"] == "stock"
-    layout = normalise_stock_layout(source) if from_stock else source
+    from_v90s = source["source_layout"] == "v90s-stock"
+    if from_v90s:
+        layout = normalise_v90s_layout(source)
+    elif from_stock:
+        layout = normalise_stock_layout(source)
+    else:
+        layout = source
 
     source_root = source["partitions"][4]
     prefix_size = layout["partitions"][4]["start_sector"] * SECTOR_SIZE
@@ -635,8 +893,10 @@ def main() -> int:
         temporary = Path(temporary_name)
         boot_prefix = temporary / "boot-prefix.img"
         harvest = temporary / "stock-harvest.tar"
-        root_image = temporary / "stock-rootfs.ext4"
-        if from_stock:
+        root_image = temporary / "stock-rootfs.img"
+        if from_v90s:
+            build_v90s_prefix(image, source, layout, boot_prefix)
+        elif from_stock:
             build_normalised_prefix(
                 image, source, layout, boot_prefix, arguments.target, temporary
             )
@@ -650,9 +910,11 @@ def main() -> int:
             sparse=True,
         )
         with root_image.open("rb") as handle:
-            handle.seek(1024 + 56)
-            if handle.read(2) != b"\x53\xef":
-                raise ValueError("partition 5 is not an ext filesystem")
+            magic_sqfs = handle.read(4)
+            handle.seek(1080)
+            magic_ext = handle.read(2)
+            if magic_sqfs != b"hsqs" and magic_ext != b"\x53\xef":
+                raise ValueError("partition 5 is neither squashfs nor an ext filesystem")
         optional_omissions = create_harvest(
             root_image,
             arguments.manifest.resolve(),

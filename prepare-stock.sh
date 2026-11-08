@@ -10,9 +10,14 @@ TARGET="${1:?usage: $0 <target> </path/to/stockmod.img>}"
 IMAGE="${2:?usage: $0 <target> </path/to/stockmod.img>}"
 [ "$#" -eq 2 ] || { echo "usage: $0 <target> </path/to/stockmod.img>" >&2; exit 2; }
 
-python3 "$HERE/tools/device_profile.py" shell "$TARGET" >/dev/null
+eval "$(python3 "$HERE/tools/device_profile.py" shell "$TARGET")"
 [ -f "$IMAGE" ] || { echo "firmware image not found: $IMAGE" >&2; exit 1; }
 case "$IMAGE" in *.[iI][mM][gG]) ;; *) echo "firmware input must be an extracted .img: $IMAGE" >&2; exit 1 ;; esac
+
+MANIFEST_FILE="/manifest/harvest.list"
+if [ "${PROFILE_PLATFORM:-h700}" = "a133p" ]; then
+  MANIFEST_FILE="/manifest/harvest-a133p.list"
+fi
 
 IMAGE_DIR="$(cd "$(dirname "$IMAGE")" && pwd)"
 IMAGE_NAME="$(basename "$IMAGE")"
@@ -27,11 +32,11 @@ docker run --rm --platform "$BASEOS_DOCKER_PLATFORM_HOST" \
   -v "$HERE/manifest":/manifest:ro \
   -v "$HERE/devices.json":/devices.json:ro \
   alpine:3.20 sh -euc '
-    apk add -q python3 e2fsprogs e2fsprogs-extra busybox-static tar
+    apk add -q python3 e2fsprogs e2fsprogs-extra busybox-static squashfs-tools tar
     python3 /tools/prepare_stock.py \
       --target "$1" \
       --image "/input/$2" \
       --output "/work/$1" \
-      --manifest /manifest/harvest.list \
+      --manifest "$3" \
       --profiles /devices.json
-  ' sh "$TARGET" "$IMAGE_NAME"
+  ' sh "$TARGET" "$IMAGE_NAME" "$MANIFEST_FILE"

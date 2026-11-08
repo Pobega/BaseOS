@@ -1,0 +1,242 @@
+{
+  "baseos_device": "v90s",
+  "boot_prefix": {
+    "sha256": "bbbdb7bca00da1597195d2eac21aaca6acdcb4310afc6f39258a0ebc4437734f",
+    "size": 122683392
+  },
+  "bootlogo": {
+    "height": 480,
+    "width": 640
+  },
+  "capabilities": {
+    "bluetooth": false,
+    "wifi": false
+  },
+  "harvest": {
+    "optional_omissions": [],
+    "sha256": "50deb2b2312a3534577ef12fe177f061a86c417f9c041e475f074f2abc8088c1",
+    "size": 56596480
+  },
+  "layout": {
+    "backup_gpt_present": true,
+    "backup_lba": 31334399,
+    "current_lba": 1,
+    "declared_image_sectors": 31334400,
+    "entries_lba": 2,
+    "entry_count": 8,
+    "entry_size": 128,
+    "first_usable_lba": 4,
+    "image_sectors": 31334400,
+    "last_usable_lba": 31334396,
+    "normalised_from": "v90s-stock",
+    "packaging": "v90s-stock",
+    "partitions": [
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 107519,
+        "name": "boot-resource",
+        "number": 1,
+        "sector_count": 65536,
+        "start_sector": 41984,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e45"
+      },
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 108031,
+        "name": "env",
+        "number": 2,
+        "sector_count": 512,
+        "start_sector": 107520,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e46"
+      },
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 108543,
+        "name": "env-redund",
+        "number": 3,
+        "sector_count": 512,
+        "start_sector": 108032,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e47"
+      },
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 239615,
+        "name": "boot",
+        "number": 4,
+        "sector_count": 131072,
+        "start_sector": 108544,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e48"
+      },
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 5482495,
+        "name": "rootfs",
+        "number": 5,
+        "sector_count": 5242880,
+        "start_sector": 239616,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e49"
+      },
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 7579647,
+        "name": "appfs",
+        "number": 6,
+        "sector_count": 2097152,
+        "start_sector": 5482496,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e4a"
+      },
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 11773951,
+        "name": "UDISK",
+        "number": 7,
+        "sector_count": 4194304,
+        "start_sector": 7579648,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e4b"
+      },
+      {
+        "attributes": 9223407496104771584,
+        "end_sector": 31293405,
+        "name": "primary",
+        "number": 8,
+        "sector_count": 19519454,
+        "start_sector": 11773952,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e4c"
+      }
+    ],
+    "sector_size": 512,
+    "source_layout": "v90s-stock"
+  },
+  "model": "Powkiddy V90S",
+  "model_string": "V90S",
+  "preserved_regions": [
+    {
+      "name": "boot-resource",
+      "partition": 1,
+      "sector_count": 65536,
+      "sha256": "433c618e6d43a03be0db362bc6383cc0c912964be5b2ef7fa40d54047a06ebd4",
+      "start_sector": 41984
+    },
+    {
+      "name": "env",
+      "partition": 2,
+      "sector_count": 512,
+      "sha256": "7fd5473abba5b0a89442f114ca6823a90fb3ae2522fbfb556507a7fc74633cdb",
+      "start_sector": 107520
+    },
+    {
+      "name": "env-redund",
+      "partition": 3,
+      "sector_count": 512,
+      "sha256": "65779bf1c3b340a3861a66d59198b87159b0016fb340f42e4958a968f6b27fa8",
+      "start_sector": 108032
+    },
+    {
+      "name": "boot",
+      "partition": 4,
+      "sector_count": 131072,
+      "sha256": "7730529b17c85f530fb4b9efc4a2606bcfdae31f0594aaa5a7ed727c7a3d973e",
+      "start_sector": 108544
+    }
+  ],
+  "provenance": "stockmod-image",
+  "schema": 1,
+  "source": {
+    "filename": "V90S.img",
+    "packaging": "v90s-stock",
+    "partitions": [
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 107519,
+        "name": "boot-resource",
+        "number": 1,
+        "sector_count": 65536,
+        "start_sector": 41984,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e45"
+      },
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 108031,
+        "name": "env",
+        "number": 2,
+        "sector_count": 512,
+        "start_sector": 107520,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e46"
+      },
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 108543,
+        "name": "env-redund",
+        "number": 3,
+        "sector_count": 512,
+        "start_sector": 108032,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e47"
+      },
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 239615,
+        "name": "boot",
+        "number": 4,
+        "sector_count": 131072,
+        "start_sector": 108544,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e48"
+      },
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 5482495,
+        "name": "batocera",
+        "number": 5,
+        "sector_count": 5242880,
+        "start_sector": 239616,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e49"
+      },
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 7579647,
+        "name": "rootfs",
+        "number": 6,
+        "sector_count": 2097152,
+        "start_sector": 5482496,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e4a"
+      },
+      {
+        "attributes": 9223407221226864640,
+        "end_sector": 11773951,
+        "name": "rootfs_data",
+        "number": 7,
+        "sector_count": 4194304,
+        "start_sector": 7579648,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e4b"
+      },
+      {
+        "attributes": 9223407496104771584,
+        "end_sector": 31293405,
+        "name": "UDISK",
+        "number": 8,
+        "sector_count": 19519454,
+        "start_sector": 11773952,
+        "type_guid": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "unique_guid": "a0085546-4166-744a-a353-fca9272b8e4c"
+      }
+    ],
+    "sha256": "7c061328f5db2d90043e9465619dbcd6f863c2cae227b7af4c9f44689f76a82f",
+    "size": 16043212800
+  },
+  "source_layout": "v90s-stock",
+  "target": "v90s"
+}

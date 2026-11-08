@@ -48,8 +48,13 @@ eval "$(python3 "$HERE/tools/source_manifest.py" shell "$SOURCE" "$TARGET")"
 # /usr/lib ships as a squashfs file that rcS mounts. Refuse a kernel that
 # cannot mount it before composing an image that would boot without libraries.
 python3 "$HERE/tools/lib_image.py" check "$TARGET"
+SQUASHFS_COMP="$(python3 "$HERE/tools/lib_image.py" comp "$TARGET")"
 
 "$HERE/tools/make-bootlogo.sh" "$TARGET"
+BOOTLOGO_START="$SOURCE_P2_START"
+if [ "${PROFILE_PLATFORM:-h700}" = "a133p" ]; then
+  BOOTLOGO_START="$SOURCE_P1_START"
+fi
 
 # Sector math for the BaseOS 1.0 seven-partition A/B layout (docs/07).
 # Slot A keeps the source firmware's rootfs start because the vendor U-Boot
@@ -75,7 +80,8 @@ docker run --rm --platform "$BASEOS_DOCKER_PLATFORM_HOST" \
   -v "$HERE/manifest":/manifest:ro \
   -e TARGET="$TARGET" -e OUT_NAME="$(basename "$OUT")" \
   -e TOTAL_SECTORS="$TOTAL_SECTORS" \
-  -e P2_START="$SOURCE_P2_START" \
+  -e BOOTLOGO_START="$BOOTLOGO_START" \
+  -e SQUASHFS_COMP="$SQUASHFS_COMP" \
   -e SLOT_START="$SLOT_START" -e SLOT_SECTORS="$SLOT_SECTORS" \
   -e FS_SECTORS="$FS_SECTORS" \
   -e SLOT_B_START="$SLOT_B_START" \
@@ -103,7 +109,7 @@ docker run --rm --platform "$BASEOS_DOCKER_PLATFORM_HOST" \
 
   # The boot-resource partition is preserved except for BaseOS bootlogo.bmp.
   export MTOOLS_SKIP_CHECK=1
-  mcopy -o -i "$OUT@@$((P2_START * 512))" /work/bootlogo.bmp ::/bootlogo.bmp
+  mcopy -o -i "$OUT@@$((BOOTLOGO_START * 512))" /work/bootlogo.bmp ::/bootlogo.bmp
   echo "bootlogo replaced for $TARGET"
 
   # The vendor 4.9 kernel needs classic ext4 features and a journal. The
@@ -119,7 +125,11 @@ docker run --rm --platform "$BASEOS_DOCKER_PLATFORM_HOST" \
   # than the card delivers; gzip and xz are smaller but cost more time to
   # unpack than the read they save. The 4.9 kernel has no squashfs xattrs.
   LIB_IMAGE=/usr/share/baseos/usr-lib.sqfs
-  mksquashfs "$R/usr/lib" "$R$LIB_IMAGE" -comp lz4 -Xhc -b 131072 -noappend \
+  COMP_FLAGS="-comp lz4 -Xhc"
+  if [ "$SQUASHFS_COMP" = "zstd" ]; then
+    COMP_FLAGS="-comp zstd"
+  fi
+  mksquashfs "$R/usr/lib" "$R$LIB_IMAGE" $COMP_FLAGS -b 131072 -noappend \
     -no-xattrs -no-exports -no-progress -mkfs-time 0 >/dev/null
   chmod 644 "$R$LIB_IMAGE"
   # Unpack it again and compare every name, mode, owner, link and content.
@@ -230,7 +240,7 @@ docker run --rm --platform "$BASEOS_DOCKER_PLATFORM_HOST" \
     rm -f /tmp/area.bin
   fi
 
-  mcopy -i "$OUT@@$((P2_START * 512))" ::/bootlogo.bmp /tmp/embedded-bootlogo.bmp
+  mcopy -i "$OUT@@$((BOOTLOGO_START * 512))" ::/bootlogo.bmp /tmp/embedded-bootlogo.bmp
   cmp /work/bootlogo.bmp /tmp/embedded-bootlogo.bmp
   minfo -i "$OUT@@$((PRIMARY_START * 512))" 2>/dev/null \
     | grep -E "disk size|cluster size" | head -2

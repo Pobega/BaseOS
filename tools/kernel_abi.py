@@ -321,8 +321,22 @@ def check(target: str, modules_from: str | None) -> int:
         magic = modinfo(sections.get(".modinfo", b"")).get("vermagic")
         if magic:
             vermagics.add(magic)
+
+    label = target if not modules_from else f"{modules_from} modules on {target} kernel"
     if not expected:
-        die(f"{module_target}: modules carry no __versions (built without MODVERSIONS?)")
+        for name, sections in sorted(modules.items()):
+            info = modinfo(sections.get(".modinfo", b""))
+            magic = info.get("vermagic")
+            if not magic:
+                die(f"{name}: missing vermagic in .modinfo")
+            release = magic.split()[0]
+            if (b"Linux version " + release.encode()) not in kernel:
+                die(f"{name}: vermagic prefix {release!r} not found in kernel Image")
+        print(f"kernel-abi: {label}")
+        print(f"  modules        {len(modules)} ({', '.join(sorted(modules))})")
+        print(f"  vermagic       {' | '.join(sorted(vermagics)) or '(none)'}")
+        print("  OK: modversions disabled; vermagic matches kernel")
+        return 0
 
     table = exported_crcs(kernel, expected)
 
@@ -334,7 +348,6 @@ def check(target: str, modules_from: str | None) -> int:
         elif found != crc:
             mismatched.append((name, found, crc))
 
-    label = target if not modules_from else f"{modules_from} modules on {target} kernel"
     print(f"kernel-abi: {label}")
     print(f"  modules        {len(modules)} ({', '.join(sorted(modules))})")
     print(f"  vermagic       {' | '.join(sorted(vermagics)) or '(none)'}")

@@ -47,6 +47,7 @@ CMDLINE = b"loglevel=1 rcupdate.rcu_expedited=1 rcupdate.rcu_normal_after_boot=1
 EMPTY_CPIO = (b"070701" + b"%08X" * 13 % (0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 11, 0)
               + b"TRAILER!!!\0").ljust(512, b"\0")
 SIZES = (8, 16, 24, 0x660, 0x670)  # kernel, ramdisk, second, recovery DTBO, DTB
+SIZES_V0 = (8, 16, 24)  # kernel, ramdisk, second
 
 
 def sha(blob: bytes) -> str:
@@ -84,6 +85,31 @@ def changed(old: bytes, new: bytes) -> set[int]:
     return {i for i, (a, b) in enumerate(zip(old, new)) if a != b}
 
 
+def split_v0(image: bytes) -> tuple[list[bytes], int]:
+    """Android v0 components in SIZES_V0 order, and the padded image length."""
+    parts, pos = [], 2048
+    for at in SIZES_V0:
+        size = word(image, at)
+        require(pos + size <= len(image), "truncated Android component")
+        parts.append(image[pos:pos + size])
+        pos += align(size)
+    require(image[0x240:0x260] == image_id(parts), "Android image ID mismatch")
+    return parts, pos
+
+
+def join_v0(header: bytes, parts: list[bytes], cmdline: bytes = b"") -> bytes:
+    """Rebuild the Android v0 image around `parts`."""
+    require(len(cmdline) < 512 and b"\0" not in cmdline, "command line does not fit the Android header")
+    head = bytearray(header)
+    for at, part in zip(SIZES_V0, parts):
+        struct.pack_into("<I", head, at, len(part))
+    head[0x40:0x240] = cmdline.ljust(512, b"\0")
+    head[0x240:0x260] = image_id(parts)
+    image = bytes(head) + b"".join(part + bytes(align(len(part)) - len(part)) for part in parts)
+    require(split_v0(image) == (parts, len(image)), "rebuilt Android image does not parse back")
+    return image
+
+
 def split(image: bytes) -> tuple[list[bytes], int]:
     """Android v2 components in SIZES order, and the padded image length."""
     parts, pos = [], 2048
@@ -110,6 +136,78 @@ def join(header: bytes, parts: list[bytes], cmdline: bytes = b"") -> bytes:
 
 
 def derive(target: str, prefix: Path, catalog: Path = CATALOG) -> dict:
+    is_a133p = False
+    if target == "v90s":
+        is_a133p = True
+    else:
+        try:
+            import sys
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from device_profile import get_profile
+            is_a133p = get_profile(target).get("platform") == "a133p"
+        except Exception:
+            is_a133p = False
+
+    if is_a133p:
+        boot_start, boot_sectors = 108544, 131072
+        source_json = prefix.parent / "source.json"
+        if source_json.is_file():
+            source_data = json.loads(source_json.read_text(encoding="utf-8"))
+            for part in source_data.get("layout", {}).get("partitions", []):
+                if part.get("number") == 4 or part.get("name") == "boot":
+                    boot_start = part["start_sector"]
+                    boot_sectors = part["sector_count"]
+                    break
+
+        package_offset = 32768 * 512
+        package_size = 4096
+        require(BOOT0_OFFSET + BOOT0_SIZE <= package_offset and
+                package_offset + package_size <= boot_start * 512,
+                "boot regions overlap")
+
+        with prefix.open("rb") as handle:
+            handle.seek(BOOT0_OFFSET)
+            original_boot0 = handle.read(BOOT0_SIZE)
+            handle.seek(package_offset)
+            original_package = handle.read(package_size)
+            handle.seek(boot_start * 512)
+            original_boot = handle.read(boot_sectors * 512)
+
+        require(original_boot[:8] == b"ANDROID!", "not an Android boot image")
+        require(word(original_boot, 36) == 2048 and word(original_boot, 40) == 0,
+                "unsupported Android v0 header/page size")
+
+        parts, original_length = split_v0(original_boot)
+        kernel, original_ramdisk = parts[0], parts[1]
+        boot = join_v0(original_boot[:2048], [kernel, EMPTY_CPIO, b""], CMDLINE)
+        expected_boot = boot + original_boot[len(boot):]
+
+        profile = {
+            "package_offset": package_offset,
+            "package_size": package_size,
+            "boot_partition_start": boot_start,
+            "boot_partition_sectors": boot_sectors,
+        }
+        return dict(
+            profile=profile,
+            package=bytes(original_package),
+            uboot=b"",
+            boot=boot,
+            original_package=original_package,
+            original_boot=original_boot,
+            expected_boot=expected_boot,
+            kernel=kernel,
+            ramdisk=EMPTY_CPIO,
+            dtb=b"",
+            original_image=original_boot[:original_length],
+            original_ramdisk=original_ramdisk,
+            gzip_package=bytes(original_package),
+            gzip_boot=boot,
+            boot0=bytes(original_boot0),
+            original_boot0=original_boot0,
+            package_dtb=b"",
+        )
+
     profiles = json.loads(catalog.read_text())
     require(profiles["schema"] == 1, "unsupported gzip profile catalog")
     require(target in profiles["profiles"], f"no audited gzip profile for {target}")

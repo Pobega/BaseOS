@@ -1,0 +1,90 @@
+# A133P base OS stock harvest allowlist.
+# One device path per line; comments and blanks ignored.
+# Directories are captured recursively; symlinks are dereferenced (tar -h),
+# so list soname paths (what the dynamic linker/dlopen actually request),
+# not the fully-versioned real files.
+
+## dynamic linker + glibc
+/usr/lib/ld-linux-aarch64.so.1
+/usr/lib/libc.so.6
+/usr/lib/libm.so.6
+/usr/lib/libdl.so.2
+/usr/lib/libpthread.so.0
+/usr/lib/librt.so.1
+/usr/lib/libutil.so.1
+/usr/lib/libcrypt.so.2
+/usr/lib/libresolv.so.2
+/usr/lib/libnss_files.so.2
+/usr/lib/libnss_dns.so.2
+/usr/lib/libgcc_s.so.1
+/usr/lib/libstdc++.so.6
+/usr/lib/libatomic.so.1
+/usr/lib/libgomp.so.1
+
+## GPU: PowerVR GE8300
+/usr/lib/libIMGegl.so
+/usr/lib/libpvrNULL_WSEGL.so
+/usr/lib/libsrv_um.so
+/usr/lib/libusc.so
+/usr/lib/libglslcompiler.so
+/usr/lib/libEGL.so.1
+/usr/lib/libGLESv2.so.2
+/usr/lib/libGLES_CM.so.1
+/usr/lib/libGLESv1_CM.so.1
+/usr/lib/libPVROCL.so.1
+/usr/lib/libPVRScopeServices.so
+/usr/bin/pvrsrvctl
+/usr/lib/firmware/rgx.fw.22.102.54.38
+/usr/lib/firmware/rgx.sh.22.102.54.38
+/usr/lib/firmware/powervr
+
+## audio: alsa-lib + configs + utils
+/usr/lib/libasound.so.2
+/usr/lib/alsa-lib
+/usr/share/alsa
+/etc/asound.conf
+/usr/sbin/alsactl
+/usr/bin/amixer
+/usr/bin/aplay
+
+## runtime libraries for frontends/ports
+/usr/lib/libSDL2-2.0.so.0
+/usr/lib/libSDL2_ttf-2.0.so.0
+/usr/lib/libSDL2_image-2.0.so.0
+/usr/lib/libSDL2_mixer-2.0.so.0
+/usr/lib/libfreetype.so.6
+/usr/lib/libpng16.so.16
+/usr/lib/libudev.so.1
+/usr/lib/libblkid.so.1
+/usr/lib/libmount.so.1
+/usr/lib/libuuid.so.1
+/usr/lib/libz.so.1
+/usr/lib/libzstd.so.1
+/usr/lib/liblz4.so.1
+/usr/lib/liblzma.so.5
+/usr/lib/libbz2.so.1.0
+/usr/lib/libcrypto.so.3
+/usr/lib/libssl.so.3
+/usr/lib/libexpat.so.1
+/usr/lib/libffi.so.8
+/usr/lib/libglib-2.0.so.0
+/usr/lib/libogg.so.0
+/usr/lib/libvorbis.so.0
+/usr/lib/libFLAC.so.12
+/usr/lib/libmpg123.so.0
+/usr/lib/libopenal.so.1
+
+## tools
+/usr/sbin/fsck.fat
+/usr/sbin/ldconfig
+/usr/bin/evtest
+
+## kernel modules
+/usr/lib/modules/4.9.191/pvrsrvkm.ko
+/usr/lib/modules/4.9.191/dc_sunxi.ko
+/usr/lib/modules/4.9.191/sunxi-backlight.ko
+/usr/lib/modules/4.9.191/kernel/drivers/media/cedar-ve/cedar_ve.ko
+
+## misc runtime data
+/usr/share/zoneinfo
+/usr/share/terminfo

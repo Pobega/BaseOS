@@ -117,8 +117,9 @@ done
 if mountpoint -q "$SD" 2>/dev/null; then
 	select_boot_log
 	flush_early_boot_log
+	FRONTEND_DIR="${BASEOS_DEVICE:-h700}"
 	ZIP="$SD/MinUI.zip"
-	LAUNCH="$SD/.system/h700/paks/MinUI.pak/launch.sh"
+	LAUNCH="$SD/.system/$FRONTEND_DIR/paks/MinUI.pak/launch.sh"
 	HAVE_PAKZ=0
 	for z in "$SD"/*.pakz; do [ -f "$z" ] && HAVE_PAKZ=1 && break; done
 	if [ -f "$ZIP" ] || [ "$HAVE_PAKZ" = 1 ]; then
@@ -133,14 +134,14 @@ if mountpoint -q "$SD" 2>/dev/null; then
 		else
 			important_splash 85 "INSTALLING FRONTEND"
 		fi
-		if [ ! -f "$SD/.tmp_update/h700.sh" ] && [ -f "$ZIP" ]; then
+		if [ ! -f "$SD/.tmp_update/$FRONTEND_DIR.sh" ] && [ -f "$ZIP" ]; then
 			log "bootstrapping installer from MinUI.zip"
 			unzip -o "$ZIP" ".tmp_update/*" -d "$SD" >> "$LOG" 2>&1
 			log "bootstrap unzip exited $?"
 		fi
-		if [ -f "$SD/.tmp_update/h700.sh" ]; then
+		if [ -f "$SD/.tmp_update/$FRONTEND_DIR.sh" ]; then
 			log "running installer/updater"
-			if sh "$SD/.tmp_update/h700.sh" >> "$LOG" 2>&1; then
+			if sh "$SD/.tmp_update/$FRONTEND_DIR.sh" >> "$LOG" 2>&1; then
 				log "installer exited 0"
 			else
 				installer_status=$?
@@ -172,8 +173,8 @@ elif [ -f "$SD/System/slot" ]; then
 	LAUNCH="$SD/System/slot"
 	FRONTEND=slot
 	LAUNCH_TYPE=binary
-elif [ -f "$SD/.system/h700/paks/MinUI.pak/launch.sh" ]; then
-	LAUNCH="$SD/.system/h700/paks/MinUI.pak/launch.sh"
+elif [ -f "$SD/.system/$FRONTEND_DIR/paks/MinUI.pak/launch.sh" ]; then
+	LAUNCH="$SD/.system/$FRONTEND_DIR/paks/MinUI.pak/launch.sh"
 	FRONTEND=nextui
 elif [ -f /mnt/SDCARD/spruce/scripts/runtime.sh ]; then
 	# rcS aliases /mnt/SDCARD to the selected card. Spruce uses that path
@@ -188,10 +189,10 @@ if [ "$CARD_MISSING" -eq 0 ] && [ -f "$LAUNCH" ]; then
 	if [ "$FRONTEND" = slot ] || [ "$FRONTEND" = generic ]; then
 		cd "$SD" || exit 1
 	fi
-	# rcS loads mali_kbase in the background; make sure /dev/mali0 exists
+	# rcS loads GPU drivers in the background; make sure GPU device node exists
 	# before the frontend initializes graphics (near-always already true).
 	m=0
-	while [ ! -e /dev/mali0 ] && [ "$m" -lt 30 ]; do
+	while [ ! -e /dev/mali0 ] && [ ! -e /dev/pvrsrvkm ] && [ ! -e /dev/dri/renderD128 ] && [ "$m" -lt 30 ]; do
 		sleep 0.1 2>/dev/null || sleep 1
 		m=$((m + 1))
 	done

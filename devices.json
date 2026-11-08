@@ -133,6 +133,19 @@
       "panel_rotation_ccw": 0,
       "wifi": true,
       "bluetooth": true
+    },
+    {
+      "id": "v90s",
+      "platform": "a133p",
+      "model": "Powkiddy V90S",
+      "stockmod_prefix": "V90S",
+      "baseos_device": "v90s",
+      "model_string": "V90S",
+      "bootlogo_width": 640,
+      "bootlogo_height": 480,
+      "panel_rotation_ccw": 0,
+      "wifi": false,
+      "bluetooth": false
     }
   ]
 }

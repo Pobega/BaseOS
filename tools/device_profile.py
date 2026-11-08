@@ -28,6 +28,7 @@ REQUIRED_FIELDS = {
 # operation rather than the mounting so the direction cannot be read backwards:
 # the RG28XX needs 90, matching the vendor bootlogo (see docs/04-boot-splash.md).
 PANEL_ROTATIONS = (0, 90, 180, 270)
+VALID_PLATFORMS = ("h700", "a133p")
 
 
 def die(message: str) -> "None":
@@ -74,6 +75,10 @@ def load_profiles(path: Path = DEFAULT_PROFILES) -> list[dict]:
         if profile["panel_rotation_ccw"] not in PANEL_ROTATIONS:
             expected = ", ".join(str(angle) for angle in PANEL_ROTATIONS)
             die(f"{target}: panel_rotation_ccw must be one of: {expected}")
+        platform = profile.get("platform", "h700")
+        if platform not in VALID_PLATFORMS:
+            expected = ", ".join(VALID_PLATFORMS)
+            die(f"{target}: platform must be one of: {expected}")
         ids.add(target)
         prefixes.add(prefix)
     return targets
@@ -123,6 +128,7 @@ def find_image(directory: Path, profile: dict) -> Path:
 def shell_profile(profile: dict) -> None:
     mapping = {
         "PROFILE_TARGET": profile["id"],
+        "PROFILE_PLATFORM": profile.get("platform", "h700"),
         "PROFILE_MODEL": profile["model"],
         "PROFILE_STOCKMOD_PREFIX": profile["stockmod_prefix"],
         "PROFILE_BASEOS_DEVICE": profile["baseos_device"],

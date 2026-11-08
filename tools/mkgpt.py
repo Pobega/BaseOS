@@ -44,6 +44,9 @@ HIDDEN_ATTRIBUTES = 0xC000000000000000
 SOURCE_NAMES = ["special", "boot-resource", "env", "boot", "rootfs", "appfs", "UDISK"]
 OUTPUT_NAMES = ["special", "boot-resource", "env", "boot", "rootfs", "UDISK", "primary"]
 
+V90S_SOURCE_NAMES = ["boot-resource", "env", "env-redund", "boot", "rootfs", "appfs", "UDISK"]
+V90S_OUTPUT_NAMES = ["boot-resource", "env", "env-redund", "boot", "rootfs", "UDISK", "primary"]
+
 
 def die(msg):
     sys.exit(f"mkgpt: {msg}")
@@ -85,14 +88,18 @@ def main():
             )
 
         source_names = [name_of(e) for e in source]
-        if source_names[:7] != SOURCE_NAMES:
+        if source_names[:7] == SOURCE_NAMES:
+            expected_output = OUTPUT_NAMES
+        elif source_names[:7] == V90S_SOURCE_NAMES:
+            expected_output = V90S_OUTPUT_NAMES
+        else:
             die(f"unexpected source partition names: {source_names}")
 
         # Drop `appfs`; shift UDISK and primary down one slot so every
         # partition keeps its stock name/type GUID/unique GUID.
         entries = source[:5] + [source[6], source[7], bytearray(ENTRY_SIZE)]
         names = [name_of(e) for e in entries]
-        if names[:7] != OUTPUT_NAMES:
+        if names[:7] != expected_output:
             die(f"unexpected output partition names: {names}")
 
         starts = [struct.unpack_from("<Q", e, 32)[0] for e in entries]
@@ -145,6 +152,18 @@ def main():
         f.write(make_header(1, backup_hdr_lba, 2))
         f.seek(2 * SECTOR)
         f.write(table + b"\0" * (2 * SECTOR - len(table)))
+        if expected_output == V90S_OUTPUT_NAMES:
+            # Allwinner sunxi_flash on A133P also keeps a logical-offset GPT
+            # header at LBA 40961 and entry tables at LBA 40962 and LBA 41982.
+            # Keep them in sync with the 1.4 GB image geometry so U-Boot's
+            # is_gpt_valid() never sees a stale 16 GB last_usable_lba on
+            # smaller SD cards.
+            f.seek(40961 * SECTOR)
+            f.write(make_header(1, backup_hdr_lba, 41982))
+            f.seek(40962 * SECTOR)
+            f.write(table + b"\0" * (2 * SECTOR - len(table)))
+            f.seek(41982 * SECTOR)
+            f.write(table + b"\0" * (2 * SECTOR - len(table)))
         # backup
         f.seek(backup_entries_lba * SECTOR)
         f.write(table + b"\0" * (2 * SECTOR - len(table)))

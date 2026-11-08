@@ -89,6 +89,8 @@ static uint32_t make_pixel(struct fb_var_screeninfo *v, uint8_t r, uint8_t g, ui
 	pixel |= ((uint32_t)(r >> (8 - v->red.length))) << v->red.offset;
 	pixel |= ((uint32_t)(g >> (8 - v->green.length))) << v->green.offset;
 	pixel |= ((uint32_t)(b >> (8 - v->blue.length))) << v->blue.offset;
+	if (v->transp.length)
+		pixel |= ((1u << v->transp.length) - 1u) << v->transp.offset;
 	return pixel;
 }
 
