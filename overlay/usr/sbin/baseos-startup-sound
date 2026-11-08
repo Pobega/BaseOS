@@ -22,13 +22,24 @@ SOUND="$TF1/startup_sound.wav"
 mkdir "$RUN/startup-sound.once" 2>/dev/null || exit 0
 printf 'Playing %s at ' "$SOUND"; cat /proc/uptime
 # The codec default PCM supplies and preserves its routing controls.
-# Match the full-volume startup playback verified on RG SP.
-amixer -q -c 0 sset 'digital volume' 63
-amixer -q -c 0 sset 'lineout volume' 31
-amixer -q -c 0 sset 'OutputL Mixer DACL' on
-amixer -q -c 0 sset 'OutputR Mixer DACR' on
-amixer -q -c 0 sset 'LINEOUT' on
-amixer -q -c 0 sset 'SPK' on
+# Match the full-volume startup playback verified on RG SP (h700) and V90S (a133p).
+RELEASE="${BASEOS_RELEASE_FILE:-/etc/baseos-release}"
+[ ! -r "$RELEASE" ] || . "$RELEASE"
+if [ "${BASEOS_PLATFORM:-}" = a133p ]; then
+    # On sun50iw10codec, digital volume is attenuation (0 = 0 dB, 63 = -74.24 dB).
+    amixer -q -c 0 sset 'digital volume' 0
+    amixer -q -c 0 sset 'LINEOUT volume' 31
+    amixer -q -c 0 sset 'LINEOUT' on
+    amixer -q -c 0 sset 'Headphone' 7 on
+    amixer -q -c 0 sset 'HpSpeaker' on
+else
+    amixer -q -c 0 sset 'digital volume' 63
+    amixer -q -c 0 sset 'lineout volume' 31
+    amixer -q -c 0 sset 'OutputL Mixer DACL' on
+    amixer -q -c 0 sset 'OutputR Mixer DACR' on
+    amixer -q -c 0 sset 'LINEOUT' on
+    amixer -q -c 0 sset 'SPK' on
+fi
 timeout 30 aplay -q -D default "$SOUND"
 result=$?
 printf 'Playback exit=%s at ' "$result"; cat /proc/uptime

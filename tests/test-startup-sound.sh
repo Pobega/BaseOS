@@ -10,7 +10,7 @@ mkdir -p "$TMP/bin" "$TMP/run" "$TMP/tf1" "$TMP/tf2"
 export PATH="$TMP/bin:$PATH"
 cat > "$TMP/bin/amixer" <<'SH'
 #!/bin/sh
-printf 'mixer\n' >> "$SOUND_TEST_LOG"
+printf 'mixer %s\n' "$*" >> "$SOUND_TEST_LOG"
 SH
 cat > "$TMP/bin/aplay" <<'SH'
 #!/bin/sh
@@ -68,6 +68,16 @@ grep -q '^umount ' "$TMP/log"
 : > "$TMP/log"
 SOUND_TEST_MOUNT_FAIL=1 sh "$helper"
 ! grep -q -E '^mixer|^play|^umount' "$TMP/log"
+
+# Verify a133p (sun50iw10codec) uses digital volume 0 (0 dB attenuation) and HpSpeaker Switch.
+rmdir "$TMP/run/startup-sound.once" 2>/dev/null || true
+printf 'BASEOS_PLATFORM=a133p\n' > "$TMP/release-a133p"
+printf '/dev/mmcblk0p7 %s vfat rw 0 0\n' "$TMP/tf1" > "$TMP/mounts"
+: > "$TMP/log"
+BASEOS_RELEASE_FILE="$TMP/release-a133p" sh "$helper"
+grep -q "mixer -q -c 0 sset digital volume 0" "$TMP/log"
+grep -q "mixer -q -c 0 sset HpSpeaker on" "$TMP/log"
+
 python3 - "$ROOT" <<'PY'
 from pathlib import Path
 import sys

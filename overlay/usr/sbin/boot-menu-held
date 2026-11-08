@@ -1,9 +1,18 @@
 #!/bin/sh
-# Report whether the vendor H700 DT-labelled MENU GPIO is physically held.
+# Report whether the physical MENU GPIO is held at cold boot.
 # The input driver advertises BTN_MODE but its EVIOCGKEY state is stale, so the
 # active-low GPIO level is the only reliable one-shot source at cold boot.
+# On V90S (a133p), the vendor DTB misspelled button@17's property as
+# `lable = "Mode"`, so gpio-109 (PD13) appears with label `?` in debugfs.
 
 GPIO="${BASEOS_GPIO_DEBUG:-/sys/kernel/debug/gpio}"
 [ -r "$GPIO" ] || exit 1
+RELEASE="${BASEOS_RELEASE_FILE:-/etc/baseos-release}"
+[ ! -r "$RELEASE" ] || . "$RELEASE"
+if [ "${BASEOS_PLATFORM:-}" = a133p ]; then
+	grep -Eq '(^[[:space:]]*gpio-109[[:space:]]+\([^)]*\)|\|GPIO Key [Mm]enu[[:space:]]*\))[[:space:]]+in[[:space:]]+lo([[:space:]]|$)' \
+		"$GPIO" 2>/dev/null
+	exit $?
+fi
 grep -Eq '\|GPIO Key [Mm]enu[[:space:]]*\)[[:space:]]+in[[:space:]]+lo([[:space:]]|$)' \
 	"$GPIO" 2>/dev/null

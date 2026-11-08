@@ -394,6 +394,13 @@ fi
 if [ "$USB_STORAGE_MODE" -eq 0 ] && [ -x /usr/sbin/h700-speaker-amp-load ]; then
 	/usr/sbin/h700-speaker-amp-load >/run/h700-speaker-amp.log 2>&1
 fi
+if [ "$USB_STORAGE_MODE" -eq 0 ] && [ "${BASEOS_PLATFORM:-}" = a133p ]; then
+	amixer -q -c 0 sset 'digital volume' 0 2>/dev/null
+	amixer -q -c 0 sset 'LINEOUT volume' 25 2>/dev/null
+	amixer -q -c 0 sset 'LINEOUT' on 2>/dev/null
+	amixer -q -c 0 sset 'Headphone' 7 on 2>/dev/null
+	amixer -q -c 0 sset 'HpSpeaker' on 2>/dev/null
+fi
 
 # Optional TF1 startup sound. The audio repair must finish before playback;
 # maintenance boots never open a card exported to the USB host.

@@ -34,4 +34,20 @@ if BASEOS_GPIO_DEBUG="$TMP/gpio-other" sh "$SCRIPT"; then
 	exit 1
 fi
 
+# On V90S (a133p), button@17 (BTN_MODE on PD13 = gpio-109) has `lable = "Mode"`
+# in the vendor DTB, so debugfs shows `?` as the consumer label.
+printf '%s\n' 'BASEOS_PLATFORM=a133p' > "$TMP/release-a133p"
+printf '%s\n' \
+	' gpio-109 (                    |?                   ) in  lo    ' \
+	> "$TMP/gpio-v90s-held"
+BASEOS_RELEASE_FILE="$TMP/release-a133p" BASEOS_GPIO_DEBUG="$TMP/gpio-v90s-held" sh "$SCRIPT"
+
+printf '%s\n' \
+	' gpio-109 (                    |?                   ) in  hi    ' \
+	> "$TMP/gpio-v90s-released"
+if BASEOS_RELEASE_FILE="$TMP/release-a133p" BASEOS_GPIO_DEBUG="$TMP/gpio-v90s-released" sh "$SCRIPT"; then
+	echo "released V90S MENU reported held" >&2
+	exit 1
+fi
+
 echo "boot-menu-held structural tests passed"
