@@ -1,21 +1,26 @@
 Base OS — add a frontend to this card
 ======================================
 
-This card runs Base OS: a minimal Linux that boots your Allwinner H700
-handheld and hands off to a frontend. Base OS itself ships no frontend, so
-this data partition has setup files and is ready for you to add a frontend.
+This card runs Base OS: a minimal Linux that boots your Powkiddy V90S or
+Allwinner H700 handheld and hands off to a frontend. Base OS itself ships no
+frontend, so this data partition has setup files and is ready for you to add a
+frontend.
 
-To install NextUI:
+Note: BaseOS-v90s and NextUI-v90s are provided as-is and are not intended to be
+fully maintained forks of BaseOS or NextUI.
 
-  1. Copy NextUI's release files onto the root of this card:
+To install NextUI (or NextUI-v90s on Powkiddy V90S):
+
+  1. Extract the NextUI release zip (NextUI-*-v90s-*-base.zip or -all.zip on
+     Powkiddy V90S) and copy its contents onto the root of this card:
         MinUI.zip
-        (and any nextui.*.pakz files from the same release)
-  2. Optionally add your Roms / Bios / Saves later — the installer creates
-     those folders on first run.
+        (and any *.pakz files and Bios/Roms/Saves folders from the release)
+     Keep MinUI.zip and *.pakz files zipped!
+  2. Optionally add your Roms / Bios / Saves now or later.
   3. Put the card back in the handheld (TF1 slot) and power on.
 
-Base OS detects MinUI.zip, runs NextUI's installer, and launches it. On every
-boot after that it goes straight to NextUI in a few seconds.
+Base OS detects MinUI.zip, unpacks and installs the frontend, and launches it.
+On every boot after that it goes straight to NextUI in a few seconds.
 
 To install Slot (a GBA frontend designed for the Anbernic RG SP):
 
@@ -42,6 +47,8 @@ also use a FAT32/exFAT card in TF2; when inserted, that card is used instead
 of this card's data partition.
 
 Frontend setup and developer details:
+https://github.com/Pobega/BaseOS-v90s
+https://github.com/Pobega/NextUI-v90s
 https://github.com/pvaibhav/BaseOS#installation
 
 Updating Base OS

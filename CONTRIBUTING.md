@@ -78,6 +78,7 @@ The version number comes from the `VERSION` file at the top of the repository.
 
 | Device | Target ID |
 |---|---|
+| Powkiddy V90S | `v90s` |
 | Anbernic RG28XX | `rg28xx` |
 | Anbernic RG34XX | `rg34xx` |
 | Anbernic RG34XX SP | `rg34xxsp` |
